@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>St. Edward's Course Prerequisite Explorer</title>
+<style>
+:root { --bg:#f7f6f2; --panel:#fff; --ink:#1f2937; --muted:#6b7280; --line:#d7d2c8; --accent:#2b6cb0; --warn:#a16207; --bad:#991b1b; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--ink); }
+header { padding:28px 32px 18px; background:linear-gradient(135deg,#fff,#eee8dc); border-bottom:1px solid var(--line); }
+h1 { margin:0 0 8px; font-size:clamp(1.6rem,3vw,2.4rem); }
+.sub { color:var(--muted); max-width:980px; line-height:1.45; }
+.status { margin-top:10px; font-size:.9rem; color:var(--muted); }
+.status.error { color:var(--bad); font-weight:700; }
+main { display:grid; grid-template-columns:380px 1fr; gap:18px; padding:18px; min-height:calc(100vh - 145px); }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:0 8px 22px rgba(0,0,0,.06); overflow:hidden; }
+.left { display:flex; flex-direction:column; min-height:620px; }
+.searchbox { padding:16px; border-bottom:1px solid var(--line); }
+input[type="search"] { width:100%; padding:13px 14px; border:1px solid var(--line); border-radius:12px; font-size:1rem; outline:none; }
+input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(43,108,176,.15); }
+.hint { font-size:.85rem; color:var(--muted); margin-top:8px; }
+.results { overflow:auto; padding:10px; }
+.result { padding:12px; border-radius:12px; cursor:pointer; border:1px solid transparent; }
+.result:hover { background:#f2f7fb; border-color:#c9dbea; }
+.result.active { background:#e7f0fa; border-color:#9ec1df; }
+.code { font-weight:800; letter-spacing:.02em; color:#111827; }
+.title { color:#374151; margin-top:2px; }
+.meta { color:var(--muted); font-size:.82rem; margin-top:3px; }
+.right { padding:18px; overflow:auto; }
+.course-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+.course-head h2 { margin:0; font-size:1.7rem; }
+.chip { display:inline-flex; align-items:center; padding:4px 9px; border-radius:999px; background:#eef2f7; color:#374151; font-size:.82rem; margin:3px 4px 0 0; }
+.tree-wrap { margin-top:18px; }
+.tree-title { font-weight:800; margin-bottom:10px; }
+.tree-toolbar { display:flex; gap:8px; align-items:center; margin:0 0 10px; }
+.tree-toolbar button { appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink); padding:7px 11px; border-radius:10px; font-size:.9rem; font-weight:700; cursor:pointer; }
+.tree-toolbar button:hover { border-color:var(--accent); background:#f8fbff; }
+.tree ul { list-style:none; margin:0 0 0 22px; padding:0; border-left:1px solid var(--line); }
+.tree > ul { margin-left:0; border-left:none; }
+.tree li { list-style:none; margin:7px 0; padding-left:14px; position:relative; }
+.tree li:before { content:""; position:absolute; left:0; top:15px; width:12px; border-top:1px solid var(--line); }
+.tree > ul > li:before { display:none; }
+.node { display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:12px; background:#fff; cursor:default; position:relative; }
+.node.expandable { cursor:pointer; }
+.node.expandable:hover { border-color:var(--accent); background:#f8fbff; }
+.node.missing { border-style:dashed; color:var(--warn); background:#fffaf0; }
+.node.no-prereqs { background:#f8fafc; }
+.edge-badge { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; background:#eef2f7; color:#374151; }
+.edge-badge.prereq { background:#e7f0fa; color:#1e3a8a; }
+.edge-badge.coreq { background:#ecfdf5; color:#065f46; }
+.edge-badge.precoreq { background:#fff7ed; color:#9a3412; }
+.edge-badge.selected { background:#ede9fe; color:#5b21b6; }
+.edge-badge.leaf { background:#f3f4f6; color:#6b7280; text-transform:none; }
+.twisty { font-size:1.35rem; line-height:1; color:var(--muted); width:1.35em; text-align:center; font-weight:900; display:inline-flex; align-items:center; justify-content:center; }
+.twisty.leaf-dot { font-size:1.55rem; color:#9ca3af; }
+.empty { color:var(--muted); padding:16px 0; }
+.tooltip { position:fixed; display:none; max-width:430px; z-index:100; background:#111827; color:#fff; border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,.25); padding:12px 14px; font-size:.88rem; line-height:1.35; pointer-events:none; }
+.tooltip .tt-title { font-weight:800; font-size:.95rem; margin-bottom:6px; }
+.tooltip .tt-line { margin-top:5px; color:#e5e7eb; }
+.tooltip .tt-label { color:#bfdbfe; font-weight:700; }
+.desc { margin-top:14px; color:#374151; line-height:1.55; max-width:1000px; }
+.reverse-wrap { margin-top:20px; padding-top:16px; border-top:1px solid var(--line); }
+.reverse-title { font-weight:800; margin-bottom:8px; }
+.reverse-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.reverse-link { appearance:none; border:1px solid var(--line); background:#fff; color:var(--accent); padding:7px 10px; border-radius:999px; font-weight:700; cursor:pointer; }
+.reverse-link:hover { border-color:var(--accent); background:#f8fbff; }
+
+.export-status { font-size:.85rem; color:var(--muted); margin-left:6px; }
+.export-status.error { color:var(--bad); font-weight:700; }
+.export-clone-wrap { position:fixed; left:-100000px; top:0; background:#fff; z-index:-1; }
+.export-clone-wrap .right { overflow:visible; box-shadow:none; }
+@media (max-width: 900px) { main { grid-template-columns:1fr; } .left { min-height:auto; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>
+    <span style="font-weight:500; color:#666;">Course Prerequisite Explorer</span>
+    25' - 26' Bulletin
+  </h1>
+  <div id="status" class="status">Loading CSV…</div>
+</header>
+<main>
+  <section class="panel left">
+    <div class="searchbox">
+      <input id="search" type="search" placeholder="Search: COSC 2325, biology, accounting…" disabled />
+      <div class="hint">Searches class number, course prefix + number, and course title.</div>
+    </div>
+    <div id="results" class="results"><div class="empty">No courses loaded yet.</div></div>
+  </section>
+  <section class="panel right">
+    <div id="detail" class="empty">Load the CSV, then select a course to see its prerequisite tree.</div>
+  </section>
+</main>
+<div id="tooltip" class="tooltip"></div>
+<script>
+(function () {
+  'use strict';
+
+  const CSV_URL = 'st_edwards_2025_2026_all_courses.csv';
+  const CODE_RE = /\b([A-Z]{2,5})\s*-?\s*(\d{4})\b/g;
+
+  let courses = [];
+  let courseByCode = new Map();
+  let activeCode = null;
+
+  const els = {
+    status: document.getElementById('status'),
+    search: document.getElementById('search'),
+    results: document.getElementById('results'),
+    detail: document.getElementById('detail'),
+    tooltip: document.getElementById('tooltip')
+  };
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function parseCsv(text) {
+    text = text.replace(/^\uFEFF/, '');
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i += 1) {
+      const ch = text[i];
+      const next = text[i + 1];
+      if (inQuotes) {
+        if (ch === '"' && next === '"') {
+          field += '"';
+          i += 1;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          field += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          row.push(field);
+          field = '';
+        } else if (ch === '\n') {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = '';
+        } else if (ch !== '\r') {
+          field += ch;
+        }
+      }
+    }
+    if (field.length > 0 || row.length > 0) {
+      row.push(field);
+      rows.push(row);
+    }
+    if (rows.length === 0) return [];
+
+    const headers = rows[0].map(h => h.trim());
+    return rows.slice(1)
+      .filter(r => r.some(v => String(v || '').trim() !== ''))
+      .map(r => {
+        const obj = {};
+        headers.forEach((h, idx) => { obj[h] = (r[idx] || '').trim(); });
+        return obj;
+      });
+  }
+
+  function normalizeCode(prefix, number) {
+    const p = String(prefix || '').trim().toUpperCase();
+    const n = String(number || '').trim();
+    return p && n ? `${p} ${n}` : '';
+  }
+
+  function extractCourseCodes(text) {
+    const found = [];
+    const seen = new Set();
+    CODE_RE.lastIndex = 0;
+    let match;
+    while ((match = CODE_RE.exec(String(text || ''))) !== null) {
+      const code = normalizeCode(match[1], match[2]);
+      if (!seen.has(code)) {
+        seen.add(code);
+        found.push(code);
+      }
+    }
+    return found;
+  }
+
+  function getPrereqCodes(row) {
+    return extractCourseCodes(row['Prerequisites']);
+  }
+
+  function getCoreqCodes(row) {
+    return extractCourseCodes(row['Corequisites']);
+  }
+
+  function getPreCoreqCodes(row) {
+    return extractCourseCodes(row['Pre- or Corequisites']);
+  }
+
+  function cleanSemester(value) {
+    return String(value || '').replace(/;\s*/g, '; ').replace(/\s+/g, ' ').trim();
+  }
+
+  function buildCourse(row) {
+    const code = normalizeCode(row['Course Prefix'], row['Course Number']) || String(row['Class Number'] || '').trim().toUpperCase();
+    return {
+      raw: row,
+      code,
+      prefix: row['Course Prefix'] || '',
+      number: row['Course Number'] || '',
+      title: row['Course Title'] || '',
+      credits: row['Credit Hours'] || '',
+      school: row['School'] || '',
+      field: row['Field of Study'] || '',
+      prereqs: [],
+      coreqs: [],
+      preCoreqs: [],
+      semester: cleanSemester(row['Semester Offered']),
+      other: row['Other Requirements / Notes'] || '',
+      description: row['Full Course Description'] || ''
+    };
+  }
+
+  function loadRows(rows) {
+    courses = rows.map(buildCourse).filter(c => c.code);
+    courseByCode = new Map();
+    courses.forEach(c => courseByCode.set(c.code, c));
+    courses.forEach(c => {
+      c.prereqs = getPrereqCodes(c.raw);
+      c.coreqs = getCoreqCodes(c.raw);
+      c.preCoreqs = getPreCoreqCodes(c.raw);
+    });
+    courses.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+    els.search.disabled = false;
+    els.status.className = 'status';
+    els.status.textContent = `Loaded ${courses.length.toLocaleString()} courses from CSV.`;
+    renderResults('');
+    els.detail.innerHTML = '<div class="empty">Select a course to see its prerequisite tree.</div>';
+  }
+
+  async function loadCsvFromUrl() {
+    try {
+      const response = await fetch(CSV_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      loadRows(parseCsv(text));
+    } catch (err) {
+      els.status.className = 'status error';
+      els.status.textContent = `Could not automatically load ${CSV_URL}. Run this page from a local web server with the CSV in the same folder.`;
+    }
+  }
+
+  function matchesQuery(course, query) {
+    if (!query) return true;
+    const q = query.toLowerCase().replace(/\s+/g, ' ').trim();
+    const compactQ = q.replace(/\s+/g, '');
+    const hay = [course.code, course.title, course.prefix, course.number, course.field, course.school].join(' ').toLowerCase();
+    const compactCode = course.code.toLowerCase().replace(/\s+/g, '');
+    return hay.includes(q) || compactCode.includes(compactQ);
+  }
+
+  function renderResults(query) {
+    const list = courses.filter(c => matchesQuery(c, query)).slice(0, 250);
+    if (list.length === 0) {
+      els.results.innerHTML = '<div class="empty">No matching courses.</div>';
+      return;
+    }
+    els.results.innerHTML = list.map(c => `
+      <div class="result ${c.code === activeCode ? 'active' : ''}" data-code="${escapeHtml(c.code)}">
+        <div class="code">${escapeHtml(c.code)}</div>
+        <div class="title">${escapeHtml(c.title)}</div>
+        <div class="meta">${escapeHtml(c.school)}${c.credits ? ' • ' + escapeHtml(c.credits) : ''}</div>
+      </div>
+    `).join('');
+  }
+
+  function tooltipHtml(course, code) {
+    if (!course) {
+      return `<div class="tt-title">${escapeHtml(code)}</div><div class="tt-line">This course appears as a prerequisite, but it was not found as its own course in the CSV.</div>`;
+    }
+    return `
+      <div class="tt-title">${escapeHtml(course.code)} — ${escapeHtml(course.title)}</div>
+      <div class="tt-line"><span class="tt-label">Semester:</span> ${escapeHtml(course.semester || 'Not listed')}</div>
+      <div class="tt-line"><span class="tt-label">Other requirements:</span> ${escapeHtml(course.other || 'None listed')}</div>
+      <div class="tt-line"><span class="tt-label">Description:</span> ${escapeHtml(course.description || 'No description listed')}</div>
+    `;
+  }
+
+  function attachTooltip(el, course, code) {
+    el.addEventListener('mouseenter', () => {
+      els.tooltip.innerHTML = tooltipHtml(course, code);
+      els.tooltip.style.display = 'block';
+    });
+    el.addEventListener('mousemove', (evt) => {
+      const pad = 16;
+      const rect = els.tooltip.getBoundingClientRect();
+      let x = evt.clientX + pad;
+      let y = evt.clientY + pad;
+      if (x + rect.width > window.innerWidth - 8) x = evt.clientX - rect.width - pad;
+      if (y + rect.height > window.innerHeight - 8) y = evt.clientY - rect.height - pad;
+      els.tooltip.style.left = `${Math.max(8, x)}px`;
+      els.tooltip.style.top = `${Math.max(8, y)}px`;
+    });
+    el.addEventListener('mouseleave', () => { els.tooltip.style.display = 'none'; });
+  }
+
+  function courseNodeLabel(course, code, repeated) {
+    const title = course && course.title ? ` — ${course.title}` : '';
+    const cycle = repeated ? ' (cycle)' : '';
+    return `<strong>${code}</strong>${title}${cycle}`;
+  }
+
+  function relationClass(relation) {
+    if (relation === 'Corequisite') return 'coreq';
+    if (relation === 'Pre- or corequisite') return 'precoreq';
+    if (relation === 'Selected course') return 'selected';
+    return 'prereq';
+  }
+
+  function getEdges(course) {
+    if (!course) return [];
+    const edges = [];
+    course.prereqs.forEach(code => edges.push({ code, relation: 'Prerequisite' }));
+    course.coreqs.forEach(code => edges.push({ code, relation: 'Corequisite' }));
+    course.preCoreqs.forEach(code => edges.push({ code, relation: 'Pre- or corequisite' }));
+    const seen = new Set();
+    return edges.filter(edge => {
+      const key = `${edge.relation}|${edge.code}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function hasPrereqs(course) {
+    return !!(course && course.prereqs && course.prereqs.length);
+  }
+
+  function setNodeExpanded(li, expanded) {
+    const node = li.firstElementChild;
+    const childUl = node ? node.nextElementSibling : null;
+    const twisty = node ? node.querySelector('.twisty') : null;
+    if (!childUl || !twisty) return;
+    li.dataset.expanded = expanded ? 'true' : 'false';
+    childUl.style.display = expanded ? '' : 'none';
+    twisty.textContent = expanded ? '▾' : '▸';
+  }
+
+  function makeTreeNode(code, path, relation, depth) {
+    const course = courseByCode.get(code);
+    const repeated = path.has(code);
+    const allEdges = getEdges(course);
+    const visibleEdges = allEdges.filter(edge => {
+      const isCoreqType = edge.relation === 'Corequisite' || edge.relation === 'Pre- or corequisite';
+      return !(isCoreqType && path.has(edge.code));
+    });
+    const li = document.createElement('li');
+    li.dataset.depth = String(depth);
+
+    const node = document.createElement('span');
+    const noPrereqs = course && !hasPrereqs(course);
+    const expandable = visibleEdges.length && !repeated;
+    node.className = `node ${course ? '' : 'missing'} ${expandable ? 'expandable' : ''} ${noPrereqs ? 'no-prereqs' : ''}`;
+    node.dataset.code = code;
+
+    const twisty = document.createElement('span');
+    twisty.className = 'twisty';
+    twisty.textContent = expandable ? (depth === 0 ? '▾' : '▸') : '●';
+    if (!expandable) twisty.classList.add('leaf-dot');
+    node.appendChild(twisty);
+
+    if (relation) {
+      const badge = document.createElement('span');
+      badge.className = `edge-badge ${relationClass(relation)}`;
+      badge.textContent = relation;
+      node.appendChild(badge);
+    }
+
+    const label = document.createElement('span');
+    label.innerHTML = courseNodeLabel(course, code, repeated);
+    node.appendChild(label);
+
+    li.appendChild(node);
+    attachTooltip(node, course, code);
+
+    if (expandable) {
+      const childUl = document.createElement('ul');
+      const nextPath = new Set(path);
+      nextPath.add(code);
+      visibleEdges.forEach(edge => childUl.appendChild(makeTreeNode(edge.code, nextPath, edge.relation, depth + 1)));
+      li.appendChild(childUl);
+
+      setNodeExpanded(li, depth === 0);
+      node.addEventListener('click', () => {
+        setNodeExpanded(li, li.dataset.expanded !== 'true');
+      });
+    }
+    return li;
+  }
+
+  function expandAllTree(tree) {
+    tree.querySelectorAll('li').forEach(li => setNodeExpanded(li, true));
+  }
+
+  function collapseTreeToFirstLayer(tree) {
+    tree.querySelectorAll('li').forEach(li => {
+      const depth = Number(li.dataset.depth || '0');
+      setNodeExpanded(li, depth === 0);
+    });
+  }
+
+  function getCoursesThatUseAsPrereq(code) {
+    return courses
+      .filter(c => c.code !== code && (c.prereqs.includes(code) || c.preCoreqs.includes(code)))
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  }
+
+  function renderReversePrereqSection(course) {
+    const dependents = getCoursesThatUseAsPrereq(course.code);
+    if (dependents.length === 0) {
+      return `
+        <div class="reverse-wrap">
+          <div class="reverse-title">Courses that use this as a prerequisite</div>
+          <div class="empty">No courses in this CSV list ${escapeHtml(course.code)} as a prerequisite.</div>
+        </div>
+      `;
+    }
+    const links = dependents.map(c => `
+      <button type="button" class="reverse-link" data-code="${escapeHtml(c.code)}" title="${escapeHtml(c.title)}">
+        ${escapeHtml(c.code)} — ${escapeHtml(c.title)}
+      </button>
+    `).join('');
+    return `
+      <div class="reverse-wrap">
+        <div class="reverse-title">Courses that use this as a prerequisite</div>
+        <div class="hint">Includes courses where this appears in Prerequisites or Pre-/Corequisites.</div>
+        <div class="reverse-list">${links}</div>
+      </div>
+    `;
+  }
+
+
+  function getExportFileName() {
+    const safeCode = String(activeCode || 'course_tree')
+      .trim()
+      .replace(/[^A-Za-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    return `${safeCode || 'course_tree'}_prereqs.jpg`;
+  }
+
+  function getCssVar(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+  }
+
+  function wrapCanvasText(ctx, text, maxWidth) {
+    const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    const lines = [];
+    let line = '';
+    words.forEach(word => {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width <= maxWidth || !line) {
+        line = test;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    });
+    if (line) lines.push(line);
+    return lines.length ? lines : [''];
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+  }
+
+  function fillRoundedRect(ctx, x, y, w, h, r, fill, stroke) {
+    roundRectPath(ctx, x, y, w, h, r);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+    }
+  }
+
+  function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+    const lines = wrapCanvasText(ctx, text, maxWidth);
+    lines.forEach((line, idx) => ctx.fillText(line, x, y + idx * lineHeight));
+    return lines.length * lineHeight;
+  }
+
+  function getVisibleTreeRows() {
+    const rows = [];
+    const tree = document.getElementById('tree');
+    if (!tree) return rows;
+    tree.querySelectorAll('li').forEach(li => {
+      const node = li.querySelector(':scope > .node');
+      if (!node) return;
+      const parentUl = li.parentElement;
+      if (parentUl && parentUl.style.display === 'none') return;
+      let ancestor = li.parentElement;
+      while (ancestor && ancestor !== tree) {
+        if (ancestor.tagName === 'UL' && ancestor.style.display === 'none') return;
+        ancestor = ancestor.parentElement;
+      }
+      const depth = Number(li.dataset.depth || '0');
+      const badge = node.querySelector('.edge-badge');
+      const label = Array.from(node.childNodes)
+        .filter(child => child.nodeType === Node.ELEMENT_NODE && child.tagName === 'SPAN' && !child.classList.contains('twisty') && !child.classList.contains('edge-badge'))
+        .map(child => child.textContent.trim())
+        .join(' ')
+        .trim();
+      const twisty = node.querySelector('.twisty');
+      const symbol = twisty && twisty.classList.contains('leaf-dot') ? '●' : (li.dataset.expanded === 'true' ? '▾' : '▸');
+      rows.push({
+        depth,
+        symbol,
+        relation: badge ? badge.textContent.trim() : '',
+        relationClass: badge ? Array.from(badge.classList).find(cls => ['prereq', 'coreq', 'precoreq', 'selected'].includes(cls)) || '' : '',
+        label
+      });
+    });
+    return rows;
+  }
+
+  function getReverseRows() {
+    const course = courseByCode.get(activeCode);
+    return course ? getCoursesThatUseAsPrereq(course.code) : [];
+  }
+
+  async function exportRightPaneAsJpg() {
+    const status = document.getElementById('exportStatus');
+    if (status) {
+      status.className = 'export-status';
+      status.textContent = 'Preparing JPG…';
+    }
+
+    try {
+      els.tooltip.style.display = 'none';
+      const course = courseByCode.get(activeCode);
+      if (!course) throw new Error('Select a course before exporting.');
+
+      const rightPane = document.querySelector('.panel.right');
+      const width = Math.max(1000, Math.ceil((rightPane && rightPane.clientWidth) || 1000));
+      const margin = 34;
+      const contentWidth = width - margin * 2;
+      const line = getCssVar('--line', '#d7d2c8');
+      const ink = getCssVar('--ink', '#1f2937');
+      const muted = getCssVar('--muted', '#6b7280');
+      const accent = getCssVar('--accent', '#2b6cb0');
+
+      const measureCanvas = document.createElement('canvas');
+      const mctx = measureCanvas.getContext('2d');
+      let estimatedHeight = 260;
+      mctx.font = '16px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      estimatedHeight += wrapCanvasText(mctx, course.description || 'No description listed.', contentWidth).length * 24;
+      estimatedHeight += Math.max(1, getVisibleTreeRows().length) * 44;
+      estimatedHeight += Math.max(1, getReverseRows().length) * 30;
+      estimatedHeight += 260;
+
+      const scale = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(width * scale);
+      canvas.height = Math.ceil(estimatedHeight * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, estimatedHeight);
+
+      let y = margin;
+      ctx.fillStyle = ink;
+      ctx.font = '700 30px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      ctx.fillText(course.code, margin, y + 30);
+      ctx.font = '20px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      drawWrappedText(ctx, course.title, margin + 150, y + 30, contentWidth - 150, 26);
+      y += 62;
+
+      ctx.strokeStyle = line;
+      ctx.beginPath();
+      ctx.moveTo(margin, y);
+      ctx.lineTo(width - margin, y);
+      ctx.stroke();
+      y += 24;
+
+      const chips = [course.school, course.field, course.credits, course.semester].filter(Boolean);
+      ctx.font = '13px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      let chipX = margin;
+      chips.forEach(chip => {
+        const chipText = String(chip);
+        const chipW = Math.min(contentWidth, ctx.measureText(chipText).width + 22);
+        if (chipX + chipW > width - margin) {
+          chipX = margin;
+          y += 34;
+        }
+        fillRoundedRect(ctx, chipX, y, chipW, 25, 13, '#eef2f7', null);
+        ctx.fillStyle = '#374151';
+        ctx.fillText(chipText, chipX + 11, y + 17);
+        chipX += chipW + 8;
+      });
+      y += 48;
+
+      ctx.fillStyle = '#374151';
+      ctx.font = '16px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      y += drawWrappedText(ctx, course.description || 'No description listed.', margin, y, contentWidth, 24) + 26;
+
+      ctx.fillStyle = ink;
+      ctx.font = '800 18px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      ctx.fillText('Prerequisite/corequisite tree', margin, y);
+      y += 22;
+
+      const treeRows = getVisibleTreeRows();
+      ctx.font = '14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      treeRows.forEach(row => {
+        const nodeX = margin + row.depth * 30;
+        const nodeY = y;
+        const relation = row.relation;
+        const relationW = relation ? ctx.measureText(relation).width + 16 : 0;
+        const labelX = nodeX + 36 + (relation ? relationW + 8 : 0);
+        const labelMax = width - margin - labelX - 18;
+        const labelLines = wrapCanvasText(ctx, row.label, labelMax);
+        const nodeH = Math.max(34, 14 + labelLines.length * 20);
+        const nodeW = Math.min(width - margin - nodeX, labelX - nodeX + Math.max(...labelLines.map(l => ctx.measureText(l).width), 120) + 18);
+
+        if (row.depth > 0) {
+          ctx.strokeStyle = line;
+          ctx.beginPath();
+          ctx.moveTo(nodeX - 16, nodeY + 17);
+          ctx.lineTo(nodeX - 4, nodeY + 17);
+          ctx.stroke();
+        }
+        fillRoundedRect(ctx, nodeX, nodeY, nodeW, nodeH, 12, '#ffffff', line);
+        ctx.fillStyle = muted;
+        ctx.font = '900 20px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+        ctx.fillText(row.symbol, nodeX + 12, nodeY + 23);
+
+        if (relation) {
+          const colors = {
+            prereq: ['#e7f0fa', '#1e3a8a'],
+            coreq: ['#ecfdf5', '#065f46'],
+            precoreq: ['#fff7ed', '#9a3412'],
+            selected: ['#ede9fe', '#5b21b6']
+          };
+          const pair = colors[row.relationClass] || ['#eef2f7', '#374151'];
+          fillRoundedRect(ctx, nodeX + 36, nodeY + 8, relationW, 19, 10, pair[0], null);
+          ctx.fillStyle = pair[1];
+          ctx.font = '800 10px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+          ctx.fillText(relation.toUpperCase(), nodeX + 44, nodeY + 21);
+        }
+
+        ctx.fillStyle = ink;
+        ctx.font = '14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+        labelLines.forEach((lineText, idx) => ctx.fillText(lineText, labelX, nodeY + 22 + idx * 20));
+        y += nodeH + 10;
+      });
+
+      y += 16;
+      ctx.strokeStyle = line;
+      ctx.beginPath();
+      ctx.moveTo(margin, y);
+      ctx.lineTo(width - margin, y);
+      ctx.stroke();
+      y += 30;
+
+      ctx.fillStyle = ink;
+      ctx.font = '800 18px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      ctx.fillText('Courses that use this as a prerequisite', margin, y);
+      y += 30;
+      const reverseRows = getReverseRows();
+      ctx.font = '14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      ctx.fillStyle = reverseRows.length ? accent : muted;
+      if (reverseRows.length === 0) {
+        ctx.fillText(`No courses in this CSV list ${course.code} as a prerequisite.`, margin, y);
+        y += 24;
+      } else {
+        reverseRows.forEach(dep => {
+          y += drawWrappedText(ctx, `${dep.code} — ${dep.title}`, margin, y, contentWidth, 22);
+        });
+      }
+
+      const finalHeight = Math.ceil((y + margin) * scale);
+      if (finalHeight < canvas.height) {
+        const trimmed = document.createElement('canvas');
+        trimmed.width = canvas.width;
+        trimmed.height = finalHeight;
+        const tctx = trimmed.getContext('2d');
+        tctx.fillStyle = '#ffffff';
+        tctx.fillRect(0, 0, trimmed.width, trimmed.height);
+        tctx.drawImage(canvas, 0, 0);
+        await downloadCanvasAsJpg(trimmed, getExportFileName());
+      } else {
+        await downloadCanvasAsJpg(canvas, getExportFileName());
+      }
+
+      if (status) status.textContent = `Downloaded ${getExportFileName()}`;
+    } catch (err) {
+      if (status) {
+        status.className = 'export-status error';
+        status.textContent = err.message || 'Export failed.';
+      }
+    }
+  }
+
+  function downloadCanvasAsJpg(canvas, filename) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) {
+          reject(new Error('The browser could not create the JPG.'));
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        resolve();
+      }, 'image/jpeg', 0.95);
+    });
+  }
+
+  function renderDetail(code) {
+    const course = courseByCode.get(code);
+    if (!course) return;
+    activeCode = code;
+    renderResults(els.search.value);
+
+    els.detail.innerHTML = `
+      <div class="course-head">
+        <h2>${escapeHtml(course.code)}</h2>
+        <div>${escapeHtml(course.title)}</div>
+      </div>
+      <div style="margin-top:12px">
+        ${course.school ? `<span class="chip">${escapeHtml(course.school)}</span>` : ''}
+        ${course.field ? `<span class="chip">${escapeHtml(course.field)}</span>` : ''}
+        ${course.credits ? `<span class="chip">${escapeHtml(course.credits)}</span>` : ''}
+        ${course.semester ? `<span class="chip">${escapeHtml(course.semester)}</span>` : ''}
+      </div>
+      <div class="desc">${escapeHtml(course.description || 'No description listed.')}</div>
+      <div class="tree-wrap">
+        <div class="tree-title">Prerequisite/corequisite tree</div>
+        <div class="tree-toolbar">
+          <button type="button" id="expandAllTree">Expand all</button>
+          <button type="button" id="collapseAllTree">Collapse all</button>
+          <button type="button" id="exportRightPaneJpg">Export JPG</button>
+          <span id="exportStatus" class="export-status" aria-live="polite"></span>
+        </div>
+        <div id="tree" class="tree"></div>
+      </div>
+      ${renderReversePrereqSection(course)}
+    `;
+    const tree = document.getElementById('tree');
+    const ul = document.createElement('ul');
+    ul.appendChild(makeTreeNode(course.code, new Set(), 'Selected course', 0));
+    tree.appendChild(ul);
+    document.getElementById('expandAllTree').addEventListener('click', () => expandAllTree(tree));
+    document.getElementById('collapseAllTree').addEventListener('click', () => collapseTreeToFirstLayer(tree));
+    document.getElementById('exportRightPaneJpg').addEventListener('click', exportRightPaneAsJpg);
+    els.detail.querySelectorAll('.reverse-link').forEach(link => {
+      link.addEventListener('click', () => {
+        renderDetail(link.dataset.code);
+        els.detail.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+  }
+
+  els.search.addEventListener('input', () => renderResults(els.search.value));
+  els.results.addEventListener('click', evt => {
+    const item = evt.target.closest('.result');
+    if (item && item.dataset.code) renderDetail(item.dataset.code);
+  });
+  loadCsvFromUrl();
+}());
+</script>
+</body>
+</html>
