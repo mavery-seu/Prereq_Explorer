@@ -36,24 +36,37 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
 .tree-toolbar { display:flex; gap:8px; align-items:center; margin:0 0 10px; }
 .tree-toolbar button { appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink); padding:7px 11px; border-radius:10px; font-size:.9rem; font-weight:700; cursor:pointer; }
 .tree-toolbar button:hover { border-color:var(--accent); background:#f8fbff; }
-.tree ul { list-style:none; margin:0 0 0 22px; padding:0; border-left:1px solid var(--line); }
-.tree > ul { margin-left:0; border-left:none; }
-.tree li { list-style:none; margin:7px 0; padding-left:14px; position:relative; }
-.tree li:before { content:""; position:absolute; left:0; top:15px; width:12px; border-top:1px solid var(--line); }
-.tree > ul > li:before { display:none; }
-.node { display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:12px; background:#fff; cursor:default; position:relative; }
-.node.expandable { cursor:pointer; }
-.node.expandable:hover { border-color:var(--accent); background:#f8fbff; }
-.node.missing { border-style:dashed; color:var(--warn); background:#fffaf0; }
-.node.no-prereqs { background:#f8fafc; }
-.edge-badge { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; background:#eef2f7; color:#374151; }
-.edge-badge.prereq { background:#e7f0fa; color:#1e3a8a; }
-.edge-badge.coreq { background:#ecfdf5; color:#065f46; }
-.edge-badge.precoreq { background:#fff7ed; color:#9a3412; }
-.edge-badge.selected { background:#ede9fe; color:#5b21b6; }
-.edge-badge.leaf { background:#f3f4f6; color:#6b7280; text-transform:none; }
-.twisty { font-size:1.35rem; line-height:1; color:var(--muted); width:1.35em; text-align:center; font-weight:900; display:inline-flex; align-items:center; justify-content:center; }
-.twisty.leaf-dot { font-size:1.55rem; color:#9ca3af; }
+
+.req-graph { position:relative; overflow:hidden; padding:18px; border:1px solid var(--line); border-radius:16px; background:#fbfaf7; min-height:320px; width:100%; }
+.req-graph-content { position:relative; transform-origin:top left; transition:transform .15s ease; width:100%; }
+.req-graph-svg { position:absolute; inset:0; pointer-events:none; overflow:visible; }
+.graph-levels { position:relative; z-index:2; display:flex; flex-direction:column; gap:64px; min-width:0; width:100%; }
+.graph-level { position:relative; }
+.graph-level { display:flex; justify-content:center; align-items:center; gap:28px 34px; min-height:58px; padding:4px 8px; flex-wrap:wrap; max-width:100%; }
+.graph-node { display:inline-flex; align-items:flex-start; gap:8px; flex:0 1 250px; max-width:min(250px, 100%); min-width:170px; padding:9px 12px; border:1px solid var(--line); border-radius:14px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,.045); cursor:default; position:relative; text-align:left; }
+.graph-node:hover { border-color:var(--accent); background:#f8fbff; }
+.graph-node.missing { border-style:dashed; color:var(--warn); background:#fffaf0; }
+.graph-node.selected { border-color:#c4b5fd; background:#f5f3ff; }
+.graph-node.leaf { background:#f8fafc; }
+.graph-node-content { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1; }
+.graph-node-top { display:flex; flex-wrap:wrap; align-items:center; gap:5px 6px; line-height:1.18; }
+.graph-node-code { font-weight:900; letter-spacing:.02em; color:#111827; }
+.graph-node-title { font-size:.86rem; color:#374151; line-height:1.25; overflow-wrap:anywhere; word-break:normal; }
+.graph-levels.crowded .graph-level { gap:22px 24px; }
+.graph-levels.crowded .graph-node { flex-basis:225px; max-width:min(225px, 100%); }
+.graph-levels.very-crowded .graph-level { gap:18px 18px; }
+.graph-levels.very-crowded .graph-node { flex-basis:200px; max-width:min(200px, 100%); font-size:.92rem; }
+.graph-levels.very-crowded .graph-node-title { font-size:.82rem; }
+.leaf-dot { font-size:1.35rem; line-height:1; color:#9ca3af; font-weight:900; flex:0 0 auto; margin-top:1px; }
+.edge-label { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 5px; border-radius:999px; background:#eef2f7; color:#374151; }
+.edge-label.prereq { background:#e7f0fa; color:#1e3a8a; }
+.edge-label.coreq { background:#ecfdf5; color:#065f46; }
+.edge-label.precoreq { background:#fff7ed; color:#9a3412; }
+.edge-label.selected { background:#ede9fe; color:#5b21b6; }
+.edge-path { fill:none; stroke:var(--line); stroke-width:2; marker-end:url(#arrowHead); }
+.edge-path.prereq { stroke:#9ec1df; }
+.edge-path.coreq { stroke:#86efac; stroke-dasharray:7 5; }
+.edge-path.precoreq { stroke:#fdba74; stroke-dasharray:4 4; }
 .empty { color:var(--muted); padding:16px 0; }
 .tooltip { position:fixed; display:none; max-width:430px; z-index:100; background:#111827; color:#fff; border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,.25); padding:12px 14px; font-size:.88rem; line-height:1.35; pointer-events:none; }
 .tooltip .tt-title { font-weight:800; font-size:.95rem; margin-bottom:6px; }
@@ -104,6 +117,7 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
   let courses = [];
   let courseByCode = new Map();
   let activeCode = null;
+  let currentGraph = null;
 
   const els = {
     status: document.getElementById('status'),
@@ -345,77 +359,261 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
     return !!(course && course.prereqs && course.prereqs.length);
   }
 
-  function setNodeExpanded(li, expanded) {
-    const node = li.firstElementChild;
-    const childUl = node ? node.nextElementSibling : null;
-    const twisty = node ? node.querySelector('.twisty') : null;
-    if (!childUl || !twisty) return;
-    li.dataset.expanded = expanded ? 'true' : 'false';
-    childUl.style.display = expanded ? '' : 'none';
-    twisty.textContent = expanded ? '▾' : '▸';
+
+  function getRequirementEdges(course) {
+    if (!course) return [];
+    const edges = [];
+    course.prereqs.forEach(code => edges.push({ code, relation: 'Prerequisite' }));
+    course.coreqs.forEach(code => edges.push({ code, relation: 'Corequisite' }));
+    course.preCoreqs.forEach(code => edges.push({ code, relation: 'Pre- or corequisite' }));
+    const seen = new Set();
+    return edges.filter(edge => {
+      const key = `${edge.relation}|${edge.code}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
-  function makeTreeNode(code, path, relation, depth) {
-    const course = courseByCode.get(code);
-    const repeated = path.has(code);
-    const allEdges = getEdges(course);
-    const visibleEdges = allEdges.filter(edge => {
-      const isCoreqType = edge.relation === 'Corequisite' || edge.relation === 'Pre- or corequisite';
-      return !(isCoreqType && path.has(edge.code));
-    });
-    const li = document.createElement('li');
-    li.dataset.depth = String(depth);
+  function buildRequirementGraph(rootCode) {
+    const nodes = new Map();
+    const edges = [];
+    const edgeKeys = new Set();
 
-    const node = document.createElement('span');
-    const noPrereqs = course && !hasPrereqs(course);
-    const expandable = visibleEdges.length && !repeated;
-    node.className = `node ${course ? '' : 'missing'} ${expandable ? 'expandable' : ''} ${noPrereqs ? 'no-prereqs' : ''}`;
-    node.dataset.code = code;
-
-    const twisty = document.createElement('span');
-    twisty.className = 'twisty';
-    twisty.textContent = expandable ? (depth === 0 ? '▾' : '▸') : '●';
-    if (!expandable) twisty.classList.add('leaf-dot');
-    node.appendChild(twisty);
-
-    if (relation) {
-      const badge = document.createElement('span');
-      badge.className = `edge-badge ${relationClass(relation)}`;
-      badge.textContent = relation;
-      node.appendChild(badge);
+    function ensureNode(code) {
+      if (!nodes.has(code)) {
+        const course = courseByCode.get(code);
+        nodes.set(code, { code, course, level: 0, outgoingRelations: new Set(), incomingCount: 0 });
+      }
+      return nodes.get(code);
     }
 
-    const label = document.createElement('span');
-    label.innerHTML = courseNodeLabel(course, code, repeated);
-    node.appendChild(label);
+    function addEdge(from, to, relation) {
+      // Edge direction is prerequisite -> course that requires it.
+      const key = `${from}|${to}|${relation}`;
+      if (edgeKeys.has(key)) return;
+      edgeKeys.add(key);
+      edges.push({ from, to, relation });
+      ensureNode(from).outgoingRelations.add(relation);
+      ensureNode(to).incomingCount += 1;
+    }
 
-    li.appendChild(node);
-    attachTooltip(node, course, code);
-
-    if (expandable) {
-      const childUl = document.createElement('ul');
+    function visit(code, depth, path) {
+      const node = ensureNode(code);
+      node.level = Math.max(node.level || 0, depth);
+      const course = courseByCode.get(code);
+      if (!course) return;
       const nextPath = new Set(path);
       nextPath.add(code);
-      visibleEdges.forEach(edge => childUl.appendChild(makeTreeNode(edge.code, nextPath, edge.relation, depth + 1)));
-      li.appendChild(childUl);
-
-      setNodeExpanded(li, depth === 0);
-      node.addEventListener('click', () => {
-        setNodeExpanded(li, li.dataset.expanded !== 'true');
+      getRequirementEdges(course).forEach(edge => {
+        // Avoid cycle duplication. A cycle is not a prerequisite branch, so do not draw it.
+        if (nextPath.has(edge.code)) return;
+        const reqNode = ensureNode(edge.code);
+        reqNode.level = Math.max(reqNode.level || 0, depth + 1);
+        addEdge(edge.code, code, edge.relation);
+        visit(edge.code, depth + 1, nextPath);
       });
     }
-    return li;
-  }
 
-  function expandAllTree(tree) {
-    tree.querySelectorAll('li').forEach(li => setNodeExpanded(li, true));
-  }
+    visit(rootCode, 0, new Set());
 
-  function collapseTreeToFirstLayer(tree) {
-    tree.querySelectorAll('li').forEach(li => {
-      const depth = Number(li.dataset.depth || '0');
-      setNodeExpanded(li, depth === 0);
+    const maxLevel = Math.max(0, ...Array.from(nodes.values()).map(node => node.level || 0));
+    const rows = Array.from({ length: maxLevel + 1 }, () => []);
+    nodes.forEach(node => {
+      if (!rows[node.level]) rows[node.level] = [];
+      rows[node.level].push(node);
     });
+
+    // Initial deterministic order, then barycentric passes to keep shared prerequisites near
+    // the courses that depend on them. This reduces crossing lines while preserving levels.
+    rows.forEach(row => row.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })));
+    function positionMaps() {
+      return rows.map(row => {
+        const pos = new Map();
+        row.forEach((node, idx) => pos.set(node.code, idx));
+        return pos;
+      });
+    }
+    for (let pass = 0; pass < 6; pass += 1) {
+      const positions = positionMaps();
+      for (let level = 1; level < rows.length; level += 1) {
+        rows[level].sort((a, b) => {
+          const aDeps = edges.filter(edge => edge.from === a.code).map(edge => positions[edge.to === rootCode ? 0 : (nodes.get(edge.to)?.level || 0)].get(edge.to)).filter(v => v != null);
+          const bDeps = edges.filter(edge => edge.from === b.code).map(edge => positions[edge.to === rootCode ? 0 : (nodes.get(edge.to)?.level || 0)].get(edge.to)).filter(v => v != null);
+          const aScore = aDeps.length ? aDeps.reduce((sum, v) => sum + v, 0) / aDeps.length : Number.MAX_SAFE_INTEGER;
+          const bScore = bDeps.length ? bDeps.reduce((sum, v) => sum + v, 0) / bDeps.length : Number.MAX_SAFE_INTEGER;
+          if (aScore !== bScore) return aScore - bScore;
+          return a.code.localeCompare(b.code, undefined, { numeric: true });
+        });
+      }
+    }
+
+    return { rootCode, nodes, edges, rows };
+  }
+
+  function graphNodeLabelHtml(course, code) {
+    const title = course && course.title ? ` — ${escapeHtml(course.title)}` : '';
+    return `<strong>${escapeHtml(code)}</strong>${title}`;
+  }
+
+  function relationBadgesHtml(node, rootCode) {
+    if (node.code === rootCode) {
+      return '<span class="edge-label selected">Selected</span>';
+    }
+    const rels = Array.from(node.outgoingRelations);
+    if (!rels.length) return '';
+    return rels.map(rel => `<span class="edge-label ${relationClass(rel)}">${escapeHtml(rel)}</span>`).join('');
+  }
+
+  function renderRequirementGraph(rootCode) {
+    const graph = buildRequirementGraph(rootCode);
+    currentGraph = graph;
+    const tree = document.getElementById('tree');
+    if (!tree) return;
+    if (!graph.nodes.size) {
+      tree.innerHTML = '<div class="graph-empty">No prerequisite information found.</div>';
+      return;
+    }
+
+    tree.innerHTML = `
+      <div id="reqGraph" class="req-graph">
+        <div id="reqGraphContent" class="req-graph-content">
+          <svg id="reqGraphSvg" class="req-graph-svg" aria-hidden="true"></svg>
+          <div id="graphLevels" class="graph-levels"></div>
+        </div>
+      </div>
+    `;
+    const levels = document.getElementById('graphLevels');
+    graph.rows.forEach((row, level) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'graph-level';
+      rowEl.dataset.level = String(level);
+      row.forEach(nodeData => {
+        const nodeEl = document.createElement('span');
+        const isLeaf = !graph.edges.some(edge => edge.to === nodeData.code);
+        nodeEl.className = `graph-node ${nodeData.course ? '' : 'missing'} ${nodeData.code === rootCode ? 'selected' : ''} ${isLeaf ? 'leaf' : ''}`;
+        nodeEl.dataset.code = nodeData.code;
+        const nodeTitle = nodeData.course && nodeData.course.title ? escapeHtml(nodeData.course.title) : '';
+        nodeEl.innerHTML = `
+          ${isLeaf ? '<span class="leaf-dot">●</span>' : ''}
+          <span class="graph-node-content">
+            <span class="graph-node-top">
+              <strong class="graph-node-code">${escapeHtml(nodeData.code)}</strong>
+              ${relationBadgesHtml(nodeData, rootCode)}
+            </span>
+            ${nodeTitle ? `<span class="graph-node-title">${nodeTitle}</span>` : ''}
+          </span>
+        `;
+        attachTooltip(nodeEl, nodeData.course, nodeData.code);
+        rowEl.appendChild(nodeEl);
+      });
+      levels.appendChild(rowEl);
+    });
+
+    requestAnimationFrame(() => {
+      applyGraphScaleToFit();
+      drawRequirementGraphEdges();
+    });
+  }
+
+  function applyGraphScaleToFit() {
+    const graphEl = document.getElementById('reqGraph');
+    const content = document.getElementById('reqGraphContent');
+    const levels = document.getElementById('graphLevels');
+    const svg = document.getElementById('reqGraphSvg');
+    if (!graphEl || !content || !levels || !svg) return;
+
+    content.style.transform = 'none';
+    content.style.left = '0px';
+
+    const availableWidth = Math.max(240, graphEl.clientWidth - 36);
+
+    // Force the graph to lay itself out inside the pane first. Rows are allowed
+    // to wrap, which effectively moves extra nodes downward rather than letting
+    // the graph spill horizontally.
+    content.style.width = `${availableWidth}px`;
+    levels.style.width = `${availableWidth}px`;
+
+    // Very crowded levels get tighter nodes and gaps before we measure height.
+    const widestLevel = Math.max(1, ...Array.from(levels.children).map(level => level.children.length));
+    const crowded = widestLevel >= 4;
+    const veryCrowded = widestLevel >= 6;
+    levels.classList.toggle('crowded', crowded);
+    levels.classList.toggle('very-crowded', veryCrowded);
+
+    const naturalWidth = availableWidth;
+    const naturalHeight = Math.max(260, levels.scrollHeight);
+    const scale = 1;
+
+    content.style.height = `${naturalHeight}px`;
+    content.style.transform = `scale(${scale})`;
+    content.dataset.scale = String(scale);
+    graphEl.style.minHeight = `${Math.ceil(naturalHeight + 36)}px`;
+    svg.setAttribute('viewBox', `0 0 ${naturalWidth} ${naturalHeight}`);
+    svg.setAttribute('width', naturalWidth);
+    svg.setAttribute('height', naturalHeight);
+  }
+
+  function drawRequirementGraphEdges() {
+    const graphEl = document.getElementById('reqGraph');
+    const content = document.getElementById('reqGraphContent');
+    const levels = document.getElementById('graphLevels');
+    const svg = document.getElementById('reqGraphSvg');
+    if (!graphEl || !content || !levels || !svg || !currentGraph) return;
+
+    const scale = Number(content.dataset.scale || '1') || 1;
+    const contentRect = content.getBoundingClientRect();
+    const width = Math.max(levels.scrollWidth, Number(svg.getAttribute('width')) || 0, graphEl.clientWidth - 36);
+    const height = Math.max(levels.scrollHeight, Number(svg.getAttribute('height')) || 0, 260);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.innerHTML = `
+      <defs>
+        <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b9bb0"></path>
+        </marker>
+      </defs>
+    `;
+
+    const nodeMap = new Map();
+    content.querySelectorAll('.graph-node').forEach(node => {
+      const rect = node.getBoundingClientRect();
+      nodeMap.set(node.dataset.code, {
+        x: (rect.left - contentRect.left) / scale,
+        y: (rect.top - contentRect.top) / scale,
+        w: rect.width / scale,
+        h: rect.height / scale
+      });
+    });
+
+    currentGraph.edges.forEach(edge => {
+      const from = nodeMap.get(edge.from);
+      const to = nodeMap.get(edge.to);
+      if (!from || !to) return;
+      // Nodes are arranged root-to-leaves from top to bottom, but edge direction is
+      // prerequisite -> dependent. So the visible arrow travels upward.
+      const x1 = from.x + from.w / 2;
+      const y1 = from.y;
+      const x2 = to.x + to.w / 2;
+      const y2 = to.y + to.h;
+      const gap = Math.max(18, (y1 - y2) / 2);
+      const midY = y1 - gap;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+      path.setAttribute('class', `edge-path ${relationClass(edge.relation)}`);
+      svg.appendChild(path);
+    });
+  }
+
+  function expandAllTree() {
+    // Graph view is fully visible by design.
+    drawRequirementGraphEdges();
+  }
+
+  function collapseTreeToFirstLayer() {
+    // Graph view is fully visible by design.
+    drawRequirementGraphEdges();
   }
 
   function getCoursesThatUseAsPrereq(code) {
@@ -506,35 +704,23 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
     return lines.length * lineHeight;
   }
 
+
   function getVisibleTreeRows() {
+    if (!currentGraph) return [];
     const rows = [];
-    const tree = document.getElementById('tree');
-    if (!tree) return rows;
-    tree.querySelectorAll('li').forEach(li => {
-      const node = li.querySelector(':scope > .node');
-      if (!node) return;
-      const parentUl = li.parentElement;
-      if (parentUl && parentUl.style.display === 'none') return;
-      let ancestor = li.parentElement;
-      while (ancestor && ancestor !== tree) {
-        if (ancestor.tagName === 'UL' && ancestor.style.display === 'none') return;
-        ancestor = ancestor.parentElement;
-      }
-      const depth = Number(li.dataset.depth || '0');
-      const badge = node.querySelector('.edge-badge');
-      const label = Array.from(node.childNodes)
-        .filter(child => child.nodeType === Node.ELEMENT_NODE && child.tagName === 'SPAN' && !child.classList.contains('twisty') && !child.classList.contains('edge-badge'))
-        .map(child => child.textContent.trim())
-        .join(' ')
-        .trim();
-      const twisty = node.querySelector('.twisty');
-      const symbol = twisty && twisty.classList.contains('leaf-dot') ? '●' : (li.dataset.expanded === 'true' ? '▾' : '▸');
-      rows.push({
-        depth,
-        symbol,
-        relation: badge ? badge.textContent.trim() : '',
-        relationClass: badge ? Array.from(badge.classList).find(cls => ['prereq', 'coreq', 'precoreq', 'selected'].includes(cls)) || '' : '',
-        label
+    currentGraph.rows.forEach((row, level) => {
+      row.forEach(node => {
+        const course = node.course;
+        const isLeaf = !currentGraph.edges.some(edge => edge.to === node.code);
+        rows.push({
+          level,
+          code: node.code,
+          title: course ? course.title : '',
+          label: `${node.code}${course && course.title ? ' — ' + course.title : ''}`,
+          relations: node.code === currentGraph.rootCode ? ['Selected course'] : Array.from(node.outgoingRelations),
+          isLeaf,
+          isRoot: node.code === currentGraph.rootCode
+        });
       });
     });
     return rows;
@@ -622,53 +808,90 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
 
       ctx.fillStyle = ink;
       ctx.font = '800 18px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
-      ctx.fillText('Prerequisite/corequisite tree', margin, y);
+      ctx.fillText('Prerequisite/corequisite graph', margin, y);
       y += 22;
 
-      const treeRows = getVisibleTreeRows();
-      ctx.font = '14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
-      treeRows.forEach(row => {
-        const nodeX = margin + row.depth * 30;
-        const nodeY = y;
-        const relation = row.relation;
-        const relationW = relation ? ctx.measureText(relation).width + 16 : 0;
-        const labelX = nodeX + 36 + (relation ? relationW + 8 : 0);
-        const labelMax = width - margin - labelX - 18;
-        const labelLines = wrapCanvasText(ctx, row.label, labelMax);
-        const nodeH = Math.max(34, 14 + labelLines.length * 20);
-        const nodeW = Math.min(width - margin - nodeX, labelX - nodeX + Math.max(...labelLines.map(l => ctx.measureText(l).width), 120) + 18);
+      if (currentGraph) {
+        const graphRows = currentGraph.rows;
+        const nodeLayout = new Map();
+        const rowGap = 82;
+        const nodeW = 245;
+        const nodeH = 54;
+        const graphTop = y + 12;
+        const graphHeight = Math.max(1, graphRows.length) * nodeH + Math.max(0, graphRows.length - 1) * rowGap + 32;
+        const graphLeft = margin;
+        fillRoundedRect(ctx, graphLeft, y, contentWidth, graphHeight + 24, 16, '#fbfaf7', line);
+        y = graphTop;
 
-        if (row.depth > 0) {
-          ctx.strokeStyle = line;
+        graphRows.forEach((row, level) => {
+          const totalW = row.length * nodeW + Math.max(0, row.length - 1) * 24;
+          let x = margin + Math.max(18, (contentWidth - totalW) / 2);
+          row.forEach(node => {
+            nodeLayout.set(node.code, { x, y, w: nodeW, h: nodeH });
+            x += nodeW + 24;
+          });
+          y += nodeH + rowGap;
+        });
+
+        currentGraph.edges.forEach(edge => {
+          const from = nodeLayout.get(edge.from);
+          const to = nodeLayout.get(edge.to);
+          if (!from || !to) return;
+          const x1 = from.x + from.w / 2;
+          const y1 = from.y + from.h;
+          const x2 = to.x + to.w / 2;
+          const y2 = to.y;
+          const midY = y1 + Math.max(24, (y2 - y1) / 2);
+          ctx.strokeStyle = edge.relation === 'Corequisite' ? '#86efac' : edge.relation === 'Pre- or corequisite' ? '#fdba74' : '#9ec1df';
+          ctx.lineWidth = 2;
+          if (edge.relation !== 'Prerequisite') ctx.setLineDash([6, 5]);
+          else ctx.setLineDash([]);
           ctx.beginPath();
-          ctx.moveTo(nodeX - 16, nodeY + 17);
-          ctx.lineTo(nodeX - 4, nodeY + 17);
+          ctx.moveTo(x1, y1);
+          ctx.bezierCurveTo(x1, midY, x2, midY, x2, y2);
           ctx.stroke();
-        }
-        fillRoundedRect(ctx, nodeX, nodeY, nodeW, nodeH, 12, '#ffffff', line);
-        ctx.fillStyle = muted;
-        ctx.font = '900 20px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
-        ctx.fillText(row.symbol, nodeX + 12, nodeY + 23);
+          ctx.setLineDash([]);
+        });
 
-        if (relation) {
-          const colors = {
-            prereq: ['#e7f0fa', '#1e3a8a'],
-            coreq: ['#ecfdf5', '#065f46'],
-            precoreq: ['#fff7ed', '#9a3412'],
-            selected: ['#ede9fe', '#5b21b6']
-          };
-          const pair = colors[row.relationClass] || ['#eef2f7', '#374151'];
-          fillRoundedRect(ctx, nodeX + 36, nodeY + 8, relationW, 19, 10, pair[0], null);
-          ctx.fillStyle = pair[1];
-          ctx.font = '800 10px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
-          ctx.fillText(relation.toUpperCase(), nodeX + 44, nodeY + 21);
-        }
-
-        ctx.fillStyle = ink;
-        ctx.font = '14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
-        labelLines.forEach((lineText, idx) => ctx.fillText(lineText, labelX, nodeY + 22 + idx * 20));
-        y += nodeH + 10;
-      });
+        graphRows.forEach(row => {
+          row.forEach(node => {
+            const layout = nodeLayout.get(node.code);
+            if (!layout) return;
+            const isRoot = node.code === currentGraph.rootCode;
+            const isLeaf = !currentGraph.edges.some(edge => edge.to === node.code);
+            fillRoundedRect(ctx, layout.x, layout.y, layout.w, layout.h, 14, isRoot ? '#f5f3ff' : isLeaf ? '#f8fafc' : '#ffffff', isRoot ? '#c4b5fd' : line);
+            let tx = layout.x + 12;
+            if (isLeaf) {
+              ctx.fillStyle = '#9ca3af';
+              ctx.font = '900 18px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+              ctx.fillText('●', tx, layout.y + 28);
+              tx += 20;
+            }
+            const rels = isRoot ? ['Selected'] : Array.from(node.outgoingRelations).slice(0, 2);
+            ctx.font = '800 9px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+            rels.forEach(rel => {
+              const relText = rel === 'Pre- or corequisite' ? 'PRE/COREQ' : rel.toUpperCase();
+              const relW = ctx.measureText(relText).width + 12;
+              const bg = rel === 'Selected' ? '#ede9fe' : rel === 'Corequisite' ? '#ecfdf5' : rel === 'Pre- or corequisite' ? '#fff7ed' : '#e7f0fa';
+              const fg = rel === 'Selected' ? '#5b21b6' : rel === 'Corequisite' ? '#065f46' : rel === 'Pre- or corequisite' ? '#9a3412' : '#1e3a8a';
+              fillRoundedRect(ctx, tx, layout.y + 8, relW, 17, 9, bg, null);
+              ctx.fillStyle = fg;
+              ctx.fillText(relText, tx + 6, layout.y + 20);
+              tx += relW + 6;
+            });
+            ctx.fillStyle = ink;
+            ctx.font = '800 13px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+            ctx.fillText(node.code, layout.x + 12, layout.y + 42);
+            const title = node.course && node.course.title ? node.course.title : '';
+            if (title) {
+              ctx.font = '13px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+              const titleText = title.length > 24 ? title.slice(0, 23) + '…' : title;
+              ctx.fillText(titleText, layout.x + 82, layout.y + 42);
+            }
+          });
+        });
+        y = graphTop + graphHeight + 24;
+      }
 
       y += 16;
       ctx.strokeStyle = line;
@@ -756,7 +979,7 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
       </div>
       <div class="desc">${escapeHtml(course.description || 'No description listed.')}</div>
       <div class="tree-wrap">
-        <div class="tree-title">Prerequisite/corequisite tree</div>
+        <div class="tree-title">Prerequisite/corequisite graph</div>
         <div class="tree-toolbar">
           <button type="button" id="expandAllTree">Expand all</button>
           <button type="button" id="collapseAllTree">Collapse all</button>
@@ -767,10 +990,8 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
       </div>
       ${renderReversePrereqSection(course)}
     `;
+    renderRequirementGraph(course.code);
     const tree = document.getElementById('tree');
-    const ul = document.createElement('ul');
-    ul.appendChild(makeTreeNode(course.code, new Set(), 'Selected course', 0));
-    tree.appendChild(ul);
     document.getElementById('expandAllTree').addEventListener('click', () => expandAllTree(tree));
     document.getElementById('collapseAllTree').addEventListener('click', () => collapseTreeToFirstLayer(tree));
     document.getElementById('exportRightPaneJpg').addEventListener('click', exportRightPaneAsJpg);
@@ -787,6 +1008,7 @@ input[type="search"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rg
     const item = evt.target.closest('.result');
     if (item && item.dataset.code) renderDetail(item.dataset.code);
   });
+  window.addEventListener('resize', () => { if (currentGraph) requestAnimationFrame(() => { applyGraphScaleToFit(); drawRequirementGraphEdges(); }); });
   loadCsvFromUrl();
 }());
 </script>
